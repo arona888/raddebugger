@@ -445,6 +445,7 @@ dw_reg_count_from_arch(Arch arch)
   {
     default:{}break;
     case Arch_x64:{result = DW_RegCodeX64_LAST;}break;
+    case Arch_arm64:{result = DW_RegCodeARM64_LAST;}break;
   }
   return result;
 }

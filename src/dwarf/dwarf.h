@@ -11,6 +11,7 @@
 #if defined(X64_H)
 # include "dwarf/x64/dwarf_x64.h"
 #endif
+#include "dwarf/arm64/dwarf_arm64.h"
 
 ////////////////////////////////
 //~ rjf: Helper Types

@@ -177,6 +177,30 @@ di_key_from_path_timestamp(String8 path, U64 min_timestamp)
         FileProperties props = properties_from_file(file);
         if(min_timestamp <= props.modified)
         {
+          //- Mach-O images and their dSYMs share the LC_UUID identity.
+          if(!made_key)
+          {
+            U8 magic[8] = {0};
+            U64 magic_size = file_read(file, r1u64(0, sizeof(magic)), magic);
+            if(macho_has_magic(str8(magic, magic_size)))
+            {
+              FileMap map = file_map_open(AccessFlag_Read, file);
+              void *ptr = props.size ? file_map_view_open(map, AccessFlag_Read, r1u64(0, props.size)) : 0;
+              if(ptr)
+              {
+                Temp scratch = scratch_begin(0, 0);
+                MACHO_Bin bin = macho_bin_from_data(scratch.arena, str8(ptr, props.size));
+                if(bin.valid && bin.has_uuid)
+                {
+                  MemoryCopy(&key, bin.uuid, sizeof(bin.uuid));
+                  made_key = 1;
+                }
+                scratch_end(scratch);
+                file_map_view_close(map, ptr, r1u64(0, props.size));
+              }
+              file_map_close(map);
+            }
+          }
           //- rjf: PDB magic => use GUID for key
           if(!made_key)
           {

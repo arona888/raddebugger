@@ -306,6 +306,7 @@ d_trap_net_from_thread__step_over_inst(Arena *arena, D_Entity *thread)
     
     // rjf: decode instruction
     DASM_Inst inst = dasm_inst_from_code(scratch.arena, arch, ip_vaddr, machine_code, DASM_Syntax_Intel);
+    result.good_read = (inst.size != 0);
     
     // rjf: call => run until call returns
     if(inst.flags & DASM_InstFlag_Call || inst.flags & DASM_InstFlag_Repeats)
@@ -442,6 +443,7 @@ d_trap_net_from_thread__step_over_line(Arena *arena, D_Entity *thread)
                                                               arch,
                                                               line_vaddr_rng.min,
                                                               machine_code);
+    good_machine_code = (ctrl_flow_info.total_size == machine_code.size);
     LogInfoNamedBlockF("ctrl_flow_info")
     {
       LogInfoNamedBlockF("exit_points") for(DASM_CtrlFlowPointNode *n = ctrl_flow_info.exit_points.first; n != 0; n = n->next)
@@ -647,6 +649,7 @@ d_trap_net_from_thread__step_into_line(Arena *arena, D_Entity *thread)
                                                               arch,
                                                               line_vaddr_rng.min,
                                                               machine_code);
+    good_machine_code = (ctrl_flow_info.total_size == machine_code.size);
   }
   
   // rjf: determine last 

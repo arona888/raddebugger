@@ -35,6 +35,7 @@ struct UWND_ModuleInfo
 {
   U64 base_vaddr;
   void *unwind_info;
+  U64 function_vaddr; // Optional symbol-derived start for top-frame prologue recovery.
 };
 
 ////////////////////////////////

@@ -8,9 +8,9 @@ local copy has been built. You can find pre-built release binaries
 [here](https://github.com/EpicGames/raddebugger/releases)._
 
 The RAD Debugger is a native, user-mode, multi-process, graphical debugger. It
-currently only supports local-machine x64 debugging on both Windows and Linux
-(although Linux support is still very early). We plan to expand support to
-other architectures, and to implement remote and multi-machine debugging.
+supports local-machine x64 debugging on Windows and Linux, and native ARM64
+debugging on macOS. The macOS backend uses Mach process control, Cocoa windowing,
+OpenGL rendering, and CoreText fonts; it does not require X11 or Homebrew.
 
 The debugger is currently in *ALPHA*. In order to get the debugger
 bullet-proof, it'd greatly help out if you submitted the issues you find
@@ -84,9 +84,8 @@ A benchmark of the linker's performance is below:
 
 # Project Development Setup / Local Build Instructions
 
-The project is actively developed both on [Windows x64](#windows-x64) and
-[Linux x64](#linux-x64) development machines. Click on whichever you'd like to
-use.
+Build instructions are provided for [Windows x64](#windows-x64),
+[Linux x64](#linux-x64), and [macOS ARM64](#macos-arm64).
 
 ## Windows x64
 
@@ -306,6 +305,67 @@ Linker, or the `radbin` CLI binary file utility:
 ```
 ./build.sh radlink release
 ./build.sh radbin release
+```
+
+## macOS ARM64
+
+Install Apple's Command Line Tools (`xcode-select --install`), then build from
+the repository root:
+
+```sh
+./build.sh raddbg radbin release
+open build/raddbg.app
+```
+
+`./build.sh` produces a debug build. Both `build/raddbg` and
+`build/raddbg.app/Contents/MacOS/raddbg` are native ARM64 executables. The build
+ad-hoc signs the debugger with `com.apple.security.cs.debugger`. macOS may require
+Developer Tools authorization when launching or attaching to another process.
+SIP-protected processes cannot be debugged; hardened-runtime targets need the
+`com.apple.security.get-task-allow` entitlement.
+
+If macOS requests debugging authorization, unlock the desktop and approve the
+debugger-access prompt. `DevToolsSecurity -status` reports the system's
+developer-group authorization policy; changing that policy is an administrator
+decision and is not part of the build.
+
+The debugger reads ARM64 Mach-O images, including ARM64 slices in universal
+binaries, and converts DWARF from matching dSYM bundles. Keep the dSYM beside
+the executable. For example, retaining the object file makes `dsymutil`
+independent of the compiler driver's temporary-file cleanup:
+
+```sh
+clang -g -O0 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer \
+  -c example.c -o example.o
+clang -g example.o -o example
+dsymutil example -o example.dSYM
+build/raddbg ./example
+```
+
+Stack walking uses frame-pointer chains and ARM64 prologue/epilogue recovery.
+Mach compact-unwind tables are not decoded; preserve frame pointers, including
+leaf frame pointers, for stack walking. ARM64 registers, instruction disassembly,
+software breakpoints, hardware single-step/watchpoints, loaded-image notifications,
+and source-level debugging use the native backend. Rosetta/x86 debuggees and
+`fork`/`vfork` following are not supported by this backend.
+
+Command maps to the existing Ctrl shortcuts; function-key debugger bindings
+remain unchanged. Depending on the keyboard's media-key settings, hold Fn for
+function-key bindings. Native keyboard/mouse automation additionally requires
+Accessibility permission for the application running the automation.
+
+For explicit conversion or inspection:
+
+```sh
+build/radbin --rdi --out:example.rdi ./example
+build/radbin --dump example.rdi
+```
+
+Focused native regression checks can be run with:
+
+```sh
+./build.sh torture debug
+(cd build && ./torture 'arm64_*' 'macho_*' 'mac_dmn_*')
 ```
 
 ---

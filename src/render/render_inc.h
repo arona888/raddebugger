@@ -16,7 +16,7 @@
 
 #if !defined(R_BACKEND) && OS_WINDOWS
 # define R_BACKEND R_BACKEND_D3D11
-#elif !defined(R_BACKEND) && OS_LINUX
+#elif !defined(R_BACKEND) && (OS_LINUX || OS_MAC)
 # define R_BACKEND R_BACKEND_OPENGL
 #endif
 

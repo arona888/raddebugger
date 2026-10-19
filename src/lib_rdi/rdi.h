@@ -134,6 +134,7 @@ typedef enum RDI_ArchEnum
 RDI_Arch_NULL       = 0,
 RDI_Arch_X64        = 1,
 RDI_Arch_X86        = 2,
+RDI_Arch_ARM64      = 3,
 } RDI_ArchEnum;
 
 typedef RDI_U8 RDI_RegCode;
@@ -141,6 +142,7 @@ typedef enum RDI_RegCodeEnum
 {
 RDI_RegCode_nil,
 } RDI_RegCodeEnum;
+#include "rdi_arm64.h"
 
 typedef RDI_U8 RDI_RegCodeX64;
 typedef enum RDI_RegCodeX64Enum
@@ -584,6 +586,7 @@ X(RDI_U64, idx)\
 X(NULL)\
 X(X64)\
 X(X86)\
+X(ARM64)\
 
 #define RDI_RegCodeX64_XList \
 X(nil, 0)\

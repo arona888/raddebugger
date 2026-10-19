@@ -118,6 +118,8 @@ typedef ptrdiff_t GLintptr;
 # include "render/opengl/win32/render_opengl_win32.h"
 #elif OS_LINUX
 # include "render/opengl/linux/render_opengl_linux.h"
+#elif OS_MAC
+# include "render/opengl/mac/render_opengl_mac.h"
 #else
 # error OS portion of OpenGL rendering backend not defined.
 #endif
@@ -149,7 +151,12 @@ struct R_OGL_AttributeArray
 ////////////////////////////////
 //~ rjf: OpenGL Procedure List
 
+#if !OS_MAC
+# define R_OGL_CoreProcedureXList
+#endif
+
 #define R_OGL_ProcedureXList \
+R_OGL_CoreProcedureXList \
 X(glGenBuffers, void, (GLsizei n, GLuint *buffers))\
 X(glBindBuffer, void, (GLenum target, GLuint buffer))\
 X(glDeleteBuffers, void, (GLsizei n, GLuint *buffers))\

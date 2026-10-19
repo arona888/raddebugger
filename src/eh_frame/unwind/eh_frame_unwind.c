@@ -15,6 +15,8 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
     EH_PtrCtx *ptr_ctx = &unwind_info->ptr_ctx;
     ARCH_Info *arch_info = arch_info_from_arch(arch);
     U64 pc = arch_ip_from_reg_block(arch_info, regs);
+    void *original_regs = push_array_no_zero(scratch.arena, U8, arch_info->reg_block_size);
+    MemoryCopy(original_regs, regs, arch_info->reg_block_size);
     
     //- rjf: find nearest FDE entry to the IP
     U64 fde_vaddr = 0;
@@ -33,6 +35,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
           eh_read_ptr(header->table, mid_pc_off, ptr_ctx->pc_vaddr + mid_pc_off, ptr_ctx, header->table_enc, &mid_pc);
           if(mid_pc > pc)
           {
+            if(mid_idx == 0) {break;}
             max_idx = mid_idx - 1;
           }
           else if(mid_pc < pc)
@@ -58,6 +61,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
         eh_read_ptr(header->table, fde_vaddr_off, ptr_ctx->pc_vaddr + fde_vaddr_off, ptr_ctx, header->table_enc, &fde_vaddr);
       }
     }
+    if(fde_vaddr == 0) {done = 1;}
     
     //- rjf: parse info from FDE entry
     DW_CIE cie = {0};
@@ -183,6 +187,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
       // rjf: parse CIE data, & FDE data
       cie_inst_data_off = eh_read_cie(cie_data, 0, cie_fmt, arch, cie_vaddr_range.min, ptr_ctx, &cie);
       fde_inst_data_off = eh_read_fde(fde_data, 0, fde_fmt, arch, fde_vaddr_range.min, ptr_ctx, &cie, &fde);
+      if(!contains_1u64(fde.pc_range, pc)) {done = 1;}
       cie_inst_data = str8_skip(cie_data, cie_inst_data_off);
       fde_inst_data = str8_skip(fde_data, fde_inst_data_off);
     }
@@ -258,19 +263,19 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
             {
               U8 delta = 0;
               off += str8_deserial_read_struct(inst_data, off, &delta);
-              new_base_pc_off += delta;
+              new_base_pc_off += delta * code_align_factor;
             }break;
             case DW_CFAOpCode_AdvanceLoc2:
             {
               U16 delta = 0;
               off += str8_deserial_read_struct(inst_data, off, &delta);
-              new_base_pc_off += delta;
+              new_base_pc_off += delta * code_align_factor;
             }break;
             case DW_CFAOpCode_AdvanceLoc4:
             {
               U32 delta = 0;
               off += str8_deserial_read_struct(inst_data, off, &delta);
-              new_base_pc_off += delta;
+              new_base_pc_off += delta * code_align_factor;
             }break;
             
             //- rjf: row operations
@@ -380,6 +385,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
                 cfi_row.reg_rules[reg].code = DW_UnwindRuleCode_Expr;
                 cfi_row.reg_rules[reg].expr = str8_substr(inst_data, r1u64(off, off+expr_size));
               }
+              off += expr_size;
             }break;
             case DW_CFAOpCode_ValOffset:
             {
@@ -418,6 +424,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
                 cfi_row.reg_rules[reg].code = DW_UnwindRuleCode_ValExpr;
                 cfi_row.reg_rules[reg].expr = str8_substr(inst_data, r1u64(off, off+expr_size));
               }
+              off += expr_size;
             }break;
             case DW_CFAOpCode_Offset:
             {
@@ -470,7 +477,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
             {
               S64 reg_off = 0;
               off += str8_deserial_read_sleb128(inst_data, off, &reg_off);
-              cfi_row.cfa_rule.s64 = (S64)reg_off;
+              cfi_row.cfa_rule.s64 = reg_off * data_align_factor;
             }break;
             case DW_CFAOpCode_DefCfaExpr:
             {
@@ -478,6 +485,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
               off += str8_deserial_read_uleb128(inst_data, off, &expr_size);
               cfi_row.cfa_rule.code = DW_UnwindRuleCode_Expr;
               cfi_row.cfa_rule.expr = str8_substr(inst_data, r1u64(off, off+expr_size));
+              off += expr_size;
             }break;
             
             //- rjf: register state resets
@@ -534,13 +542,18 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
     U64 cfa = 0;
     if(!done) switch(cfi_row.cfa_rule.code)
     {
-      default:{}break;
+      default:{done = 1;}break;
       case DW_UnwindRuleCode_Reg:
       {
         U64 cfa_reg_val = 0;
         DW_RegCode dw_reg_code = cfi_row.cfa_rule.reg_code;
         ARCH_RegCode reg_code = arch_reg_code_from_dw(arch, dw_reg_code);
-        arch_reg_block_read_range(arch_info, regs, arch_info->reg_code_rng_table[reg_code], &cfa_reg_val);
+        if(reg_code == 0 || dim_1u16(arch_info->reg_code_rng_table[reg_code]) > sizeof(cfa_reg_val))
+        {
+          done = 1;
+          break;
+        }
+        arch_reg_block_read_range(arch_info, original_regs, arch_info->reg_code_rng_table[reg_code], &cfa_reg_val);
         cfa = cfa_reg_val + cfi_row.cfa_rule.s64;
       }break;
       case DW_UnwindRuleCode_Expr:
@@ -568,6 +581,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
       ARCH_RegCode reg_code = arch_reg_code_from_dw(arch, reg_idx);
       Rng1U16 reg_rng = arch_info->reg_code_rng_table[reg_code];
       U64 reg_size = dim_1u16(reg_rng);
+      if(reg_code == 0 || reg_size == 0) {continue;}
       switch(rule->code)
       {
         default:
@@ -609,8 +623,8 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
           U64 src_reg_size = dim_1u16(src_reg_rng);
           U64 read_size = Min(src_reg_size, reg_size);
           U8 *src_reg_val_buffer = push_array(temp.arena, U8, read_size);
-          arch_reg_block_read_range(arch_info, regs, src_reg_rng, src_reg_val_buffer);
-          arch_reg_block_write_range(arch_info, regs, reg_rng, src_reg_val_buffer);
+          arch_reg_block_read_range(arch_info, original_regs, r1u16(src_reg_rng.min, src_reg_rng.min + read_size), src_reg_val_buffer);
+          arch_reg_block_write_range(arch_info, regs, r1u16(reg_rng.min, reg_rng.min + read_size), src_reg_val_buffer);
           temp_end(temp);
         }break;
         case DW_UnwindRuleCode_Expr:
@@ -618,7 +632,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
           Temp temp = temp_begin(scratch.arena);
           String8 expr = rule->expr;
           DW_EvalState eval_state = {0};
-          DW_Eval eval = dw_eval(scratch.arena, cie.format, arch, memory_map, regs, 0, cfa, tls_vaddr, &eval_state, expr, 1000);
+          DW_Eval eval = dw_eval(scratch.arena, cie.format, arch, memory_map, original_regs, 0, cfa, tls_vaddr, &eval_state, expr, 1000);
           if(eval.status == DW_EvalStatus_FailedMemoryRead)
           {
             done = 1;
@@ -648,7 +662,7 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
           Temp temp = temp_begin(scratch.arena);
           String8 expr = rule->expr;
           DW_EvalState eval_state = {0};
-          DW_Eval eval = dw_eval(scratch.arena, cie.format, arch, memory_map, regs, 0, cfa, tls_vaddr, &eval_state, expr, 1000);
+          DW_Eval eval = dw_eval(scratch.arena, cie.format, arch, memory_map, original_regs, 0, cfa, tls_vaddr, &eval_state, expr, 1000);
           if(eval.status == DW_EvalStatus_FailedMemoryRead)
           {
             done = 1;
@@ -683,6 +697,25 @@ eh_uwnd_step(Arch arch, MemoryMap *memory_map, UWND_ModuleInfo *module_info, U64
     {
       arch_reg_block_write_sp(arch_info, regs, cfa);
     }
+#if defined(ARM64_H)
+      if(!done && arch == Arch_arm64)
+      {
+        ARCH_RegCode return_reg = arch_reg_code_from_dw(arch, cie.ret_addr_reg);
+        U64 return_pc = 0;
+        if(return_reg == 0 || dim_1u16(arch_info->reg_code_rng_table[return_reg]) > sizeof(return_pc))
+        {
+          done = 1;
+        }
+        else
+        {
+          arch_reg_block_read_range(arch_info, regs, arch_info->reg_code_rng_table[return_reg], &return_pc);
+          ARM64_RegBlock *r = (ARM64_RegBlock *)regs;
+          r->pc = arm64_address_from_pointer(return_pc);
+          r->x[29] = arm64_address_from_pointer(r->x[29]);
+          if((r->pc & 3) || (r->sp & 15)) {done = 1;}
+        }
+      }
+#endif
     
     //- rjf: commit new register values, if we succeeded
     if(!done)

@@ -9,6 +9,10 @@
 ////////////////////////////////
 //~ cpuid
 
+#if ARCH_X64
+#if COMPILER_CLANG || COMPILER_GCC
+# include <cpuid.h>
+#endif
 internal void
 x64_cpuid(U32 leaf, U32 *eax, U32 *ebx, U32 *ecx, U32 *edx)
 {
@@ -69,6 +73,7 @@ x64_get_xsave_size(void)
   x64_cpuid_ex(0xd, 0, 0, &xsave_size, 0, 0);
   return xsave_size;
 }
+#endif
 
 internal U16
 x64_xsave_tag_word_from_real_tag_word(U16 ftw)
@@ -83,6 +88,7 @@ x64_xsave_tag_word_from_real_tag_word(U16 ftw)
   return compact;
 }
 
+#if ARCH_X64
 internal U32
 x64_xsave_offset_from_feature_flag(U64 xcr0, X64_XStateComponentIdx comp_idx)
 {
@@ -124,6 +130,7 @@ x64_get_xsave_layout(U64 xcr0)
   xsave_layout.tile_data_offset = x64_xsave_offset_from_feature_flag(xcr0, X64_XStateComponentIdx_TILEDATA);
   return xsave_layout;
 }
+#endif
 
 ////////////////////////////////
 //~ Debug Control Register

@@ -8,6 +8,8 @@
 # include "render/opengl/win32/render_opengl_win32.c"
 #elif OS_LINUX
 # include "render/opengl/linux/render_opengl_linux.c"
+#elif OS_MAC
+# include "render/opengl/mac/render_opengl_mac.c"
 #else
 # error OS portion of OpenGL rendering backend not defined.
 #endif
@@ -224,7 +226,15 @@ r_init(CmdLine *cmdln)
 #if BUILD_DEBUG
   debug_mode = 1;
 #endif
+#if OS_MAC
+  if(debug_mode && glDebugMessageCallback == 0)
+  {
+    raddbg_log("[OpenGL] Debug callbacks are unavailable in the macOS OpenGL 4.1 profile.\n");
+  }
+  if(debug_mode && glDebugMessageCallback != 0)
+#else
   if(debug_mode)
+#endif
   {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(r_ogl_debug_message_callback, 0);

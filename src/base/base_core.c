@@ -473,9 +473,10 @@ max_ops_per_instruction_from_arch(Arch arch)
   {
     case Arch_Null: break;
     case Arch_x64: max_ops = 1; break;
+    case Arch_arm64: max_ops = 1; break;
     case Arch_x86:
     case Arch_arm32:
-    case Arch_arm64: NotImplemented; break;
+      NotImplemented; break;
     default: InvalidPath;
   }
   return max_ops;
@@ -489,9 +490,10 @@ min_instruction_size_from_arch(Arch arch)
   {
     case Arch_Null: break;
     case Arch_x64: min_instruction_size = 1; break;
+    case Arch_arm64: min_instruction_size = 4; break;
     case Arch_x86:
     case Arch_arm32:
-    case Arch_arm64: NotImplemented; break;
+      NotImplemented; break;
     default: InvalidPath;
   }
   return min_instruction_size;
@@ -500,8 +502,7 @@ min_instruction_size_from_arch(Arch arch)
 internal U64
 max_instruction_size_from_arch(Arch arch)
 {
-  // TODO(rjf): make this real
-  return 64;
+  return arch == Arch_arm64 ? 4 : 64;
 }
 
 ////////////////////////////////
@@ -675,7 +676,7 @@ idx_of_zero_byte64(U8 *ptr, U64 size)
   U64 mask_lsb = 0x01 * splat;
   U64 mask_msb = 0x80 * splat;
   U64 t = (x - mask_lsb) & (~x & mask_msb);
-  return ctz64(t) / 8;
+  return t != 0 ? ctz64(t) / 8 : 8;
 #endif
 }
 

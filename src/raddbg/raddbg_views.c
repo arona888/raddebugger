@@ -2708,7 +2708,7 @@ RD_VIEW_UI_FUNCTION_DEF(disasm)
   
   //////////////////////////////
   //- rjf: if disassembly views are not parameterized by anything, they
-  // automatically snap to the selected thread's RIP, OR the "temp look
+  // automatically snap to the selected thread's IP, OR the "temp look
   // address" (commanded by go-to-disasm or go-to-address), rounded down to the
   // nearest 16K boundary
   //
@@ -2726,7 +2726,13 @@ RD_VIEW_UI_FUNCTION_DEF(disasm)
     {
       auto_selected = 1;
       auto_space = rd_eval_space_from_ctrl_entity(d_entity_from_handle(rd_regs()->process), D_EvalSpaceKind_Entity);
-      eval = e_eval_from_stringf("(reg:rip & (~(0x1000 - 1)))");
+      D_Entity *thread = d_entity_from_handle(rd_regs()->thread);
+      ARCH_Info *thread_arch = arch_info_from_arch(thread->arch);
+      ARCH_RegCode ip_reg = thread_arch->instruction_pointer_reg_code;
+      if(ip_reg < thread_arch->reg_code_count)
+      {
+        eval = e_eval_from_stringf("(reg:%S & (~(0x1000 - 1)))", thread_arch->reg_code_name_table[ip_reg]);
+      }
     }
   }
   

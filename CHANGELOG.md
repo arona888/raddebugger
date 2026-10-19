@@ -1,3 +1,22 @@
+# Unreleased
+
+## Debugger Changes
+- Added a native ARM64 macOS build and signed application bundle.
+- Added Mach launch/attach/halt/detach, ARM64 registers, software breakpoints,
+  hardware stepping/watchpoints, programmatic BRK continuation, dyld image
+  tracking, and frame-pointer/prologue/epilogue stack walking.
+- Added Mach-O/universal ARM64 and UUID-matched dSYM ingestion through the
+  existing DWARF-to-RDI converter, including UUID selection across universal
+  dSYM slices.
+- Added Cocoa windows, native menu/IME input, clipboard handling, fractional
+  trackpad scrolling, Retina OpenGL rendering, CoreText fonts, native shell
+  dialogs, and kqueue socket IPC.
+- Added ARM64 unwind/control-flow, Mach-O bounds, and Mach shared-cache
+  protection regressions.
+- Fixed procedure-name expressions incorrectly reporting unresolved symbols.
+- Fixed flipped Retina pointer/file-drop coordinates and idle document-open
+  delivery in the native event pump.
+
 # v0.9.29-alpha
 
 ## Debugger Changes

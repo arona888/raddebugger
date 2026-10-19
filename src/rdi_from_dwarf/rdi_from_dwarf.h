@@ -72,6 +72,13 @@ struct D2R_UnitDedupedTagMap
 ////////////////////////////////
 //~ rjf: Conversion Stage Inputs (New)
 
+typedef struct D2R_TlsVariable D2R_TlsVariable;
+struct D2R_TlsVariable
+{
+  U64 vaddr;
+  U64 offset;
+};
+
 typedef struct D2R_ConvertParams D2R_ConvertParams;
 struct D2R_ConvertParams
 {
@@ -79,6 +86,9 @@ struct D2R_ConvertParams
   String8 exe_data;
   Arch arch;
   U64 base_vaddr;
+  RDI_GUID guid;
+  D2R_TlsVariable *tls_variables; // Sorted by descriptor vaddr; absent on ELF/PE.
+  U64 tls_variable_count;
   RDIM_BinarySectionList binary_sections;
   DW_Raw raw;
   PathStyle path_style;
@@ -91,6 +101,7 @@ struct D2R_ConvertParams
 
 internal int d2r_tree_hash_is_less_than(D2R_TreeHash *a, D2R_TreeHash *b);
 internal int d2r_unique_tag_node_is_less_than(D2R_UniqueTagNode **l, D2R_UniqueTagNode **r);
+internal int d2r_tls_variable_compare(D2R_TlsVariable *a, D2R_TlsVariable *b);
 
 ////////////////////////////////
 //~ rjf: Main Conversion Entry Point (New)

@@ -9,6 +9,20 @@
 
 #include "base_context_cracking.h"
 
+// Import the Apple SDK before the codebase's keyword macros. Carbon's FileInfo
+// is unrelated to our file iterator record and is not used by the backends.
+#if OS_MAC && defined(__OBJC__)
+# define FileInfo MacSDKFileInfo
+# import <Cocoa/Cocoa.h>
+# import <CoreText/CoreText.h>
+# import <CoreServices/CoreServices.h>
+# undef FileInfo
+# undef nil
+// Keep nil usable in Objective-C without macro-expanding C identifiers and
+// token-pasted rule names in the platform-independent unity source.
+static id const nil = (id)0;
+#endif
+
 #include "base_core.h"
 #include "base_profile.h"
 #include "base_memory.h"
@@ -36,6 +50,8 @@
 # include "win32/base/win32_base.h"
 #elif OS_LINUX
 # include "linux/base/linux_base.h"
+#elif OS_MAC
+# include "mac/base/mac_base.h"
 #else
 # error Operating system backend not found for base layer.
 #endif

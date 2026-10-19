@@ -429,6 +429,7 @@ struct UI_Box
   Vec2F32 view_off;
   Vec2F32 view_off_target;
   Vec2F32 view_bounds;
+  Vec2F32 scroll_remainder;
   UI_Key default_nav_focus_hot_key;
   UI_Key default_nav_focus_active_key;
   UI_Key default_nav_focus_next_hot_key;

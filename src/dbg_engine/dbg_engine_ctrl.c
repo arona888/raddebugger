@@ -1961,6 +1961,19 @@ d_unwind_from_thread(Arena *arena, D_Handle thread, U64 endt_us)
     {
       U64 start_ip = arch_ip_from_reg_block(arch_info, regs_block);
       U64 start_sp = arch_sp_from_reg_block(arch_info, regs_block);
+#if defined(ARM64_H)
+      if(arch == Arch_arm64)
+      {
+        ARM64_RegBlock *arm_regs = (ARM64_RegBlock *)regs_block;
+        U64 fp = arm64_address_from_pointer(arm_regs->x[29]);
+        U64 stack_base = thread_entity->stack_base;
+        if(frame_node_count >= 4096 || (start_sp & 15) ||
+           (stack_base != 0 && (start_sp > stack_base || (fp != 0 && (stack_base < 16 || fp > stack_base - 16)))))
+        {
+          break;
+        }
+      }
+#endif
       
       //- rjf: cancel on zero rip (except the top frame)
       if(start_ip == 0 && frame_node_count > 1)
@@ -1976,6 +1989,20 @@ d_unwind_from_thread(Arena *arena, D_Handle thread, U64 endt_us)
       D_ModuleInfo *module_info = d_info_from_module(access, module_entity->handle);
       UWND_Unwinder unwinder = module_info->unwinder;
       UWND_ModuleInfo unwinder_module_info = {module_entity->vaddr_range.min, module_info->unwind_info};
+      if(arch == Arch_arm64 && frame_node_count == 1)
+      {
+        RDI_Parsed *rdi = di_rdi_from_key(access, d_dbgi_key_from_module(module_entity), 0, 0);
+        RDI_Scope *scope = rdi_scope_from_voff(rdi, d_voff_from_vaddr(module_entity, start_ip));
+        RDI_Symbol *procedure = rdi_element_from_name_idx(rdi, Procedures, scope->proc_idx);
+        RDI_Scope *root_scope = rdi_element_from_name_idx(rdi, Scopes, procedure->root_scope_idx);
+        U64 voff_count = 0;
+        U64 *voffs = rdi_table_from_name(rdi, ScopeVOffData, &voff_count);
+        if(root_scope->voff_range_first < root_scope->voff_range_opl &&
+           root_scope->voff_range_first < voff_count)
+        {
+          unwinder_module_info.function_vaddr = d_vaddr_from_voff(module_entity, voffs[root_scope->voff_range_first]);
+        }
+      }
       
       //- rjf: thread * module -> tls vaddr
       U64 tls_vaddr = 0;
@@ -2018,6 +2045,14 @@ d_unwind_from_thread(Arena *arena, D_Handle thread, U64 endt_us)
         // rjf: try step
         U64 cfa = 0;
         UWND_StepResult step = uwnd_step(unwinder, arch, &memory_map, &unwinder_module_info, tls_vaddr, regs_block, &cfa);
+        if(arch == Arch_arm64 && step.status == UWND_StepStatus_Good)
+        {
+          U64 next_sp = arch_sp_from_reg_block(arch_info, regs_block);
+          if(next_sp < start_sp || (thread_entity->stack_base != 0 && next_sp > thread_entity->stack_base))
+          {
+            step.status = UWND_StepStatus_Error;
+          }
+        }
         
         // rjf: if the step failed -> restore original register values
         if(step.status != UWND_StepStatus_Good)
@@ -2143,6 +2178,7 @@ d_call_stack_from_unwind(Arena *arena, D_Entity *process, D_Unwind *base_unwind)
       ARCH_Info *arch_info = arch_info_from_arch(arch);
       D_UnwindFrame *src = &base_unwind->frames.v[base_frame_idx];
       U64 rip_vaddr = arch_ip_from_reg_block(arch_info, src->regs);
+      if(arch == Arch_arm64 && base_frame_idx != 0 && rip_vaddr >= 4) {rip_vaddr -= 4;}
       D_Entity *module = d_module_from_process_vaddr(process, rip_vaddr);
       U64 rip_voff = d_voff_from_vaddr(module, rip_vaddr);
       DI_Key dbgi_key = d_dbgi_key_from_module(module);

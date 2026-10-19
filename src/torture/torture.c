@@ -528,7 +528,7 @@ t_invoke_env(String8 exe_path, String8 cmdline, String8List env, U64 timeout_us)
   
   LinuxCapture captures_linux[2] = {0};
   for EachElement(i, captures_linux) {
-    if (pipe2(captures_linux[i].fds, 0) != 0) {
+    if (pipe(captures_linux[i].fds) != 0) {
       fprintf(stderr, "ERROR: failed to create pipe for output capture\n");
       goto exit;
     }
@@ -716,7 +716,7 @@ t_invoke_env(String8 exe_path, String8 cmdline, String8List env, U64 timeout_us)
       CloseHandle(captures_win32[i].event);
     }
   }
-#elif OS_LINUX
+#elif OS_LINUX || OS_MAC
   // close handle so read(2) does not block
   for EachElement(i, write_capture_handles) {
     close((int)write_capture_handles[i].u64[0]);
@@ -724,7 +724,23 @@ t_invoke_env(String8 exe_path, String8 cmdline, String8List env, U64 timeout_us)
   }
   
   pid_t pid   = (pid_t)process_handle.u64[0];
-  int   pidfd = syscall(SYS_pidfd_open, pid, 0);
+#if OS_MAC
+  int pidfd = kqueue();
+  struct kevent process_event;
+  EV_SET(&process_event, pid, EVFILT_PROC, EV_ADD|EV_ONESHOT, NOTE_EXIT, 0, 0);
+  if(pidfd >= 0 && kevent(pidfd, &process_event, 1, 0, 0, 0) < 0)
+  {
+    // A very short-lived child can have exited before registration.
+    if(errno != ESRCH) { close(pidfd); pidfd = -1; }
+    else
+    {
+      EV_SET(&process_event, 1, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_TRIGGER, 0, 0);
+      if(kevent(pidfd, &process_event, 1, 0, 0, 0) < 0) { close(pidfd); pidfd = -1; }
+    }
+  }
+#else
+  int pidfd = syscall(SYS_pidfd_open, pid, 0);
+#endif
   if (pidfd < 0) {
     fprintf(stderr, "ERROR: failed to translate pid(%d) to pidfd\n", pid);
     goto exit;
@@ -797,7 +813,9 @@ t_invoke_env(String8 exe_path, String8 cmdline, String8List env, U64 timeout_us)
               read_buffer      = push_array(scratch.arena, U8, read_buffer_default_size);
             }
             
-            ssize_t read_size = LNX_RETRY_ON_EINTR(read(captures_linux[i].poll_fd->fd, read_buffer, read_buffer_size));
+            ssize_t read_size;
+            do { read_size = read(captures_linux[i].poll_fd->fd, read_buffer, read_buffer_size); }
+            while(read_size < 0 && errno == EINTR);
             if (read_size > 0) {
               str8_list_push(scratch.arena, captures_linux[i].parts, str8(read_buffer, read_size));
               read_buffer      += read_size;
@@ -913,6 +931,8 @@ t_kill_all(String8 pattern)
 #elif OS_LINUX
       NotImplemented; // TODO: test
       if (!t_invoke(str8_lit("kill"), str8f(scratch.arena, " -9 %u", info.pid), max_U64)) { fprintf(stderr, "ERROR: failed to invoke kill\n"); }
+#elif OS_MAC
+      g_last_exit_code = kill((pid_t)info.pid, SIGKILL) == 0 ? 0 : 1;
 #else
 # error NotImplemented
 #endif

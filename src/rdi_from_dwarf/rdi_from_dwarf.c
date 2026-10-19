@@ -18,6 +18,12 @@ d2r_unique_tag_node_is_less_than(D2R_UniqueTagNode **l, D2R_UniqueTagNode **r)
   return is_less_than;
 }
 
+internal int
+d2r_tls_variable_compare(D2R_TlsVariable *a, D2R_TlsVariable *b)
+{
+  return a->vaddr < b->vaddr ? -1 : a->vaddr > b->vaddr ? 1 : 0;
+}
+
 ////////////////////////////////
 //~ rjf: Main Conversion Entry Point (New)
 
@@ -74,9 +80,9 @@ d2r_convert(Arena *arena, D2R_ConvertParams *params)
     top_level_info.exe_name = params->exe_name;
     top_level_info.exe_hash = exe_hash;
     top_level_info.voff_max = acceptable_vaddr_range.max - base_vaddr;
+    top_level_info.guid = params->guid;
     if(!params->deterministic)
     {
-      // TODO(rjf): top_level_info.guid = ...;
       top_level_info.producer_name = str8_lit(BUILD_TITLE_STRING_LITERAL);
     }
   }
@@ -3733,6 +3739,24 @@ d2r_convert(Arena *arena, D2R_ConvertParams *params)
                       case DW_ExprOp_FormTlsAddress:
                       case DW_GNU_ExprOp_PushTlsAddress:
                       {
+                        // Mach-O operands name TLV descriptors rather than allocation offsets.
+                        RDIM_EvalBytecodeOp *constant = dst_bytecode.first_op;
+                        if(params->tls_variable_count && constant && constant == dst_bytecode.last_op &&
+                           (constant->op == RDI_EvalOp_ConstU8 || constant->op == RDI_EvalOp_ConstU16 ||
+                            constant->op == RDI_EvalOp_ConstU32 || constant->op == RDI_EvalOp_ConstU64))
+                        {
+                          U64 min = 0, max = params->tls_variable_count;
+                          for(; min < max;)
+                          {
+                            U64 mid = min+(max-min)/2;
+                            if(params->tls_variables[mid].vaddr < constant->p) { min = mid+1; } else { max = mid; }
+                          }
+                          if(min < params->tls_variable_count && params->tls_variables[min].vaddr == constant->p)
+                          {
+                            MemoryZeroStruct(&dst_bytecode);
+                            rdim_bytecode_push_uconst(arena, &dst_bytecode, params->tls_variables[min].offset);
+                          }
+                        }
                         rdim_bytecode_push_op(arena, &dst_bytecode, RDI_EvalOp_TLSOff, 0);
                         rdim_bytecode_push_op(arena, &dst_bytecode, RDI_EvalOp_Add, RDI_EvalTypeGroup_U);
                         push_vals[0].is_addr = 1;

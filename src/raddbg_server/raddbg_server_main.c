@@ -13,6 +13,7 @@
 //- rjf: [h]
 #include "base/base_inc.h"
 #include "x64/x64_inc.h"
+#include "arm64/arm64_inc.h"
 #include "arch/arch_inc.h"
 #include "socket/socket_inc.h"
 #include "coff/coff.h"
@@ -28,6 +29,7 @@
 //- rjf: [c]
 #include "base/base_inc.c"
 #include "x64/x64_inc.c"
+#include "arm64/arm64_inc.c"
 #include "arch/arch_inc.c"
 #include "socket/socket_inc.c"
 #include "coff/coff.c"

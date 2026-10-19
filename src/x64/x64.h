@@ -217,17 +217,23 @@ X64_DebugControlFlags;
 ////////////////////////////////
 //~ cpuid
 
+#if ARCH_X64
 internal void x64_cpuid(U32 leaf, U32 *eax, U32 *ebx, U32 *ecx, U32 *edx);
 internal void x64_cpuid_ex(U32 leaf, U32 sub_leaf, U32 *eax, U32 *ebx, U32 *ecx, U32 *edx);
+#endif
 
 ////////////////////////////////
 //~ fxsave/xsave
 
+#if ARCH_X64
 internal B32 x64_is_xsave_supported(void);
 internal U32 x64_get_xsave_size(void);
+#endif
 internal U16 x64_xsave_tag_word_from_real_tag_word(U16 ftw);
+#if ARCH_X64
 internal U32 x64_xsave_offset_from_feature_flag(U64 xcr0, X64_XStateComponentIdx comp_idx);
 internal X64_XSaveLayout x64_get_xsave_layout(U64 xcr0);
+#endif
 
 ////////////////////////////////
 //~ Debug Control Register

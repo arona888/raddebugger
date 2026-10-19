@@ -49,6 +49,7 @@
   "typedef int32_t  RDI_S32;";
   "typedef int64_t  RDI_S64;";
   "#endif";
+  "#include \"rdi_arm64.h\"";
   "";
   "////////////////////////////////////////////////////////////////";
   "//~ Checksum Types";
@@ -310,6 +311,7 @@ RDI_ArchTable:
   {NULL    0     0}
   {X64     1     8}
   {X86     2     4}
+  {ARM64   3     8}
 }
 
 @table(name value)

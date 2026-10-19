@@ -4,7 +4,7 @@
 #include "lib_rdi_make/rdi_make.c"
 
 internal RDIM_DataModel
-rdim_data_model_from_os_arch(OperatingSystem os, RDI_Arch arch)
+rdim_data_model_from_os_arch(OperatingSystem os, Arch arch)
 {
   RDIM_DataModel data_model = RDIM_DataModel_Null;
 #define Case(os_name, arch_name, model_name) if(os == OperatingSystem_##os_name && arch == Arch_##arch_name) { data_model = RDIM_DataModel_##model_name; }
@@ -13,6 +13,9 @@ rdim_data_model_from_os_arch(OperatingSystem os, RDI_Arch arch)
   Case(Linux,   x86, ILP32);
   Case(Linux,   x64, LLP64);
   Case(Mac,     x64, LP64);
+  Case(Windows, arm64, LLP64);
+  Case(Linux,   arm64, LP64);
+  Case(Mac,     arm64, LP64);
 #undef Case
   return data_model;
 }
@@ -26,6 +29,7 @@ rdim_make_top_level_info(String8 image_name, Arch arch, U64 exe_hash, RDIM_Binar
   {
     default:{}break;
     case Arch_x64:{arch_rdi = RDI_Arch_X64;}break;
+    case Arch_arm64:{arch_rdi = RDI_Arch_ARM64;}break;
     case Arch_x86:{NotImplemented;}break;
   }
   

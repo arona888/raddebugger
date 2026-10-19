@@ -1059,7 +1059,7 @@ X(Str, ".debug_str", "__debug_str", ".debug_str.dwo")\
 X(Addr, ".debug_addr", "__debug_addr", ".debug_addr.dwo")\
 X(LocLists, ".debug_loclists", "__debug_loclists", ".debug_loclists.dwo")\
 X(RngLists, ".debug_rnglists", "__debug_rnglists", ".debug_rnglists.dwo")\
-X(StrOffsets, ".debug_str_offsets", "__debug_str_offsets", ".debug_str_offsets.dwo")\
+X(StrOffsets, ".debug_str_offsets", "__debug_str_offs", ".debug_str_offsets.dwo")\
 X(LineStr, ".debug_line_str", "__debug_line_str", ".debug_line_str.dwo")\
 X(Names, ".debug_names", "__debug_names", ".debug_names.dwo")\
 

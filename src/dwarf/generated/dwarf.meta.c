@@ -43,7 +43,7 @@ str8_lit_comp("__debug_str"),
 str8_lit_comp("__debug_addr"),
 str8_lit_comp("__debug_loclists"),
 str8_lit_comp("__debug_rnglists"),
-str8_lit_comp("__debug_str_offsets"),
+str8_lit_comp("__debug_str_offs"),
 str8_lit_comp("__debug_line_str"),
 str8_lit_comp("__debug_names"),
 };

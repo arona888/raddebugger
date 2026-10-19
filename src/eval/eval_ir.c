@@ -2092,6 +2092,7 @@ e_push_irtree_and_type_from_expr(Arena *arena, E_IRTreeAndType *root_parent, E_I
                   }break;
                   case RDI_SectionKind_Procedures:
                   {
+                    string_mapped = 1;
                     RDI_Symbol *procedure = (RDI_Symbol *)rdi_section_raw_element_from_kind_idx(rdi, match.section_kind, match.idx);
                     RDI_TypeNode *type_node = rdi_element_from_name_idx(rdi, TypeNodes, procedure->type_idx);
                     U64 procedure_base_voff = rdi_first_voff_from_procedure(rdi, procedure);
